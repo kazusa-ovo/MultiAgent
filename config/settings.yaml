@@ -1,0 +1,11 @@
+llm:
+  provider: openai
+  model: gpt-4o
+  temperature: 0.5
+  max_tokens: 4096
+
+system:
+  max_conversation_history: 20
+  user_profile_path: "data/user_profile.json"
+  log_level: INFO
+

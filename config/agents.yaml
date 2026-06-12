@@ -1,0 +1,60 @@
+agents:
+       research:
+         role: research
+         description: "Web search and information retrieval specialist"
+         expertise: [fact-checking, web-search, documentation, current-events]
+         tools: [web_search]
+         model: null
+         temperature: 0.3
+
+       code:
+         role: code
+         description: "Software engineering and code specialist"
+         expertise: [python, javascript, code-review, debugging, algorithms]
+         tools: [code_executor]
+         model: null
+         temperature: 0.2
+
+       analysis:
+         role: analysis
+         description: "Data analysis,mathematics,and logical reasoning specialist"
+         expertise: [math,statistics,logic,data-analysis,reasoning,problem-solving]
+         tools: [calculator]
+         model: null
+         temperature: 0.2
+
+       creative:
+         role: creative
+         description: "Creative writing and content generation specialist"
+         expertise: [writing,storytelling,brainstorming,translation,content-creation]
+         tools: []
+         model: null
+         temperature: 0.7
+
+       planner:
+         role: planner
+         description: "Task planning and step-by-step methodology specialist"
+         expertise: [ planning, project-management, methodology, strategy, organization ]
+         tools: [ ]
+         model: null
+         temperature: 0.4
+
+       memory:
+         role: memory
+         description: "Conversation history and user preference management specialist"
+         expertise: [ memory-recall, context-tracking, user-preferences, summarization ]
+         tools: [ ]
+         model: null
+         temperature: 0.3
+
+
+
+
+
+
+
+
+
+
+
+
