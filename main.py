@@ -20,6 +20,7 @@ def _build_system(config:dict):
     from src.tools.web_search import WebSearchTool
     from src.tools.calculator import CalculatorTool
     from src.tools.code_executor import CodeExecutorTool
+    from src.tools.rag_search import RAGSearchTool
 
     from src.agents.research_agent import ResearchAgent
     from src.agents.code_agent import CodeAgent
@@ -42,6 +43,7 @@ def _build_system(config:dict):
 
     research_tools = ToolRegistry()
     research_tools.register(WebSearchTool())
+    research_tools.register(RAGSearchTool())
 
     code_tools = ToolRegistry()
     code_tools.register(CodeExecutorTool())

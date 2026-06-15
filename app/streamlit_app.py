@@ -91,6 +91,51 @@ with st.sidebar:
         st.caption(f"{emoji} **{role}** — {desc}")
 
     st.markdown("---")
+
+    st.markdown("#### Knowledge Base")
+    uploaded_file = st.file_uploader(
+        "Upload documents",
+        type=["pdf", "docx", "md", "txt"],
+        help="Uploaded documents will be searchable via the RAG tool",
+    )
+    if uploaded_file is not None:
+        with st.spinner("Indexing document..."):
+            try:
+                from src.rag.document_loader import DocumentLoader
+                from src.rag.embedder import Embedder
+                from src.rag.vector_store import VectorStore
+
+                import tempfile
+                suffix = "." + uploaded_file.name.rsplit(".", 1)[-1]
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                    tmp.write(uploaded_file.read())
+                    tmp_path = tmp.name
+
+                chunks = DocumentLoader.load(tmp_path)
+                embedder = Embedder()
+                embeddings = run_async(embedder.embed(chunks))
+                store = VectorStore()
+                store.add(chunks, embeddings, source=uploaded_file.name)
+
+                import os as _os
+                _os.unlink(tmp_path)
+                st.success(f"Indexed {len(chunks)} chunks from `{uploaded_file.name}`")
+            except Exception as e:
+                st.error(f"Failed to index: {e}")
+
+    try:
+        from src.rag.vector_store import VectorStore
+        kb = VectorStore()
+        chunk_count = kb.count()
+        st.caption(f"Documents indexed: **{chunk_count}** chunks")
+
+        if chunk_count > 0 and st.button("Clear Knowledge Base", use_container_width=True):
+            kb.clear()
+            st.rerun()
+    except Exception:
+        st.caption("Knowledge base unavailable")
+
+    st.markdown("---")
     st.caption(f"Messages: {len(st.session_state.messages)}")
 
 st.title("Multi-Agent Conversation Assistant")

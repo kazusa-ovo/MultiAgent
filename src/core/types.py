@@ -40,3 +40,10 @@ class AgentResult(BaseModel):
 class Message(BaseModel):
     role: str  # "user" | "assistant" | "system"
     content: str
+
+class AnalysisResult(BaseModel):
+    """Result from the merged analyze() call."""
+    direct_answer: str | None = None
+    confidence: float = 0.5
+    tasks: list[Task] = Field(default_factory=list)
+    reasoning: str = ""

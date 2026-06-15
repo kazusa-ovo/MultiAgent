@@ -28,7 +28,9 @@ class ResearchAgent(BaseAgent):
             "- Always cite sources when available\n"
             "- Distinguish facts from opinions\n"
             "- When you cannot find information, acknowledge it honestly\n"
-            "- Use the web_search tool when you need current or external data"
+            "- Use the web_search tool when you need current or external data\n"
+            "- Use web_search for public information, rag_search for uploaded documents\n"
+            "- If a tool fails, try a different search term, switch tools, or proceed with what you know\n"
         )
 
     @property

@@ -23,7 +23,9 @@ class CodeAgent(BaseAgent):
             "- Never generate code with security vulnerabilities (SQL injection, XSS, etc.)\n"
             "- Use type hints in Python\n"
             "- Explain complex logic clearly\n"
-            "- Use the code_executor tool to test code before presenting it"
+            "- Use the code_executor tool to test code before presenting it\n"
+            "- If code_executor shows errors, analyze them and fix the code before presenting\n"
+            "- If the tool fails, analyze the error and try a corrected version"
         )
 
     @property

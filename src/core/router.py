@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from src.core.types import AgentRole, Intent, Task, Message
+from src.core.types import AgentRole, Intent, Task, Message, AnalysisResult
 from src.llm.client import LLMClient
 
 AGENT_PROFILES:dict[AgentRole,dict[str,Any]] = {
@@ -68,6 +68,30 @@ DECOMPOSE_PROMPT = """You are a task decomposer. Break down the user's request i
   4. Tasks that need prior results → list the earlier task indices in depends_on.
 
   Return ONLY a valid JSON array, no other text."""
+
+ANALYZE_PROMPT = """You are a request analyzer for a multi-agent system.
+
+  Available agents:
+  {agent_list}
+
+  Analyze the user message and decide whether it needs specialized agents.
+
+  Return a JSON object:
+  - "direct_answer": a brief, friendly answer if this is simple conversation (greetings, "who are you", chitchat). Set to null if this needs
+  specialized expertise.
+  - "confidence": 0.0 to 1.0
+  - "tasks": array of task objects (empty when direct_answer is sufficient)
+    - "agent_role": agent role name
+    - "instruction": clear, self-contained instruction
+    - "depends_on": list of 0-based task indices
+
+  Rules:
+  - Simple chat / self-introduction / small talk → use direct_answer, empty tasks.
+  - Requests needing factual lookup, code, math, planning, or analysis → direct_answer: null, populate tasks.
+
+  User message: {user_message}
+
+  Return ONLY valid JSON, no other text."""
 
 
 class IntentRouter:
@@ -188,4 +212,105 @@ class IntentRouter:
             )
             text = "\n".join(lines[1:end])
         return text.strip()
+
+    async def replan(
+        self,
+        user_message: str,
+        all_results: list,
+    ) -> list:
+        """Generate recovery tasks based on previous failures."""
+        lines: list[str] = []
+        for i, r in enumerate(all_results):
+            status = "OK" if r.success else f"FAILED: {r.error or 'unknown'}"
+            preview = r.content[:300] + ("..." if len(r.content) > 300 else "")
+            lines.append(f"[{i}] {r.agent_role.value}({status}): {preview}")
+
+        prompt = self.REPLAN_PROMPT.format(
+            agent_list=self._agent_list_str,
+            user_message=user_message,
+            previous_results="\n".join(lines),
+        )
+
+        messages: list[dict[str, Any]] = [{"role": "system", "content": prompt}]
+        response = await self.llm.chat(
+            messages=messages,
+            temperature=0.2,
+            max_tokens=1024,
+        )
+        content = response.get("content", "[]")
+
+        try:
+            data = json.loads(self._extract_json(content))
+            tasks: list = []
+            for item in data:
+                tasks.append(Task(
+                    agent_role=AgentRole(item["agent_role"]),
+                    instruction=item["instruction"],
+                    depends_on=item.get("depends_on", []),
+                ))
+            return tasks
+        except (json.JSONDecodeError, ValueError, KeyError):
+            return []
+
+    REPLAN_PROMPT = """You are a task replanner for a multi-agent system.
+
+  Available agents:
+  {agent_list}
+
+  Original user request: {user_message}
+
+  Previous execution results (some may have failed):
+  {previous_results}
+
+  Some tasks failed or produced inadequate results. Generate NEW tasks to recover.
+  Guidelines:
+  - Try a DIFFERENT agent if the original one failed (e.g. if code agent failed, try planner to break it down)
+  - Split complex failed tasks into smaller, simpler ones
+  - If one agent's output was insufficient, assign another agent to supplement or verify
+  - Set depends_on using 0-based indices of the NEW task list (not the old results)
+
+  Return a JSON array of task objects with "agent_role", "instruction", "depends_on" fields.
+  Return ONLY valid JSON, no other text. Return [] if no recovery is possible."""
+
+    async def analyze(self, user_message: str) -> AnalysisResult:
+        prompt = ANALYZE_PROMPT.format(
+            agent_list=self._agent_list_str,
+            user_message=user_message,
+        )
+        messages: list[dict[str, Any]] = [{
+            "role": "system",
+            "content": prompt,
+        }]
+        response = await self.llm.chat(
+            messages=messages,
+            temperature=0.1,
+            max_tokens=1024,
+        )
+        content = response.get("content", "{}")
+
+        try:
+            data = json.loads(self._extract_json(content))
+            tasks: list[Task] = []
+            for item in data.get("tasks", []):
+                tasks.append(Task(
+                    agent_role=AgentRole(item["agent_role"]),
+                    instruction=item["instruction"],
+                    depends_on=item.get("depends_on", []),
+                ))
+            return AnalysisResult(
+                direct_answer=data.get("direct_answer"),
+                confidence=float(data.get("confidence", 0.5)),
+                tasks=tasks,
+                reasoning=str(data.get("reasoning", ""))
+            )
+        except (json.JSONDecodeError, ValueError, KeyError):
+            return AnalysisResult(
+                direct_answer=None,
+                confidence=0.3,
+                tasks=[self._fallback_task(user_message, Intent(
+                    category=AgentRole.PLANNER,
+                    confidence=0.3,
+                    reasoning="Analyze failed, fallback"
+                ))],
+            )
 
